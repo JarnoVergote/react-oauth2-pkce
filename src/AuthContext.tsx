@@ -93,7 +93,9 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
 
   function handleTokenResponse(response: TTokenResponse) {
     setToken(response.access_token)
-    setRefreshToken(response.refresh_token)
+    if (response.refresh_token) {
+      setRefreshToken(response.refresh_token)
+    }
     const tokenExpiresIn = config.tokenExpiresIn ?? response.expires_in ?? FALLBACK_EXPIRE_TIME
     setTokenExpire(epochAtSecondsFromNow(tokenExpiresIn))
     const refreshTokenExpiresIn = config.refreshTokenExpiresIn ?? getRefreshExpiresIn(tokenExpiresIn, response)
