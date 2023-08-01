@@ -93,13 +93,13 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
 
   function handleTokenResponse(response: TTokenResponse) {
     setToken(response.access_token)
-    if (response.refresh_token) {
-      setRefreshToken(response.refresh_token)
-    }
     const tokenExpiresIn = config.tokenExpiresIn ?? response.expires_in ?? FALLBACK_EXPIRE_TIME
     setTokenExpire(epochAtSecondsFromNow(tokenExpiresIn))
-    const refreshTokenExpiresIn = config.refreshTokenExpiresIn ?? getRefreshExpiresIn(tokenExpiresIn, response)
-    setRefreshTokenExpire(epochAtSecondsFromNow(refreshTokenExpiresIn))
+    if (response.refresh_token) {
+      setRefreshToken(response.refresh_token)
+      const refreshTokenExpiresIn = config.refreshTokenExpiresIn ?? getRefreshExpiresIn(tokenExpiresIn, response)
+      setRefreshTokenExpire(epochAtSecondsFromNow(refreshTokenExpiresIn))
+    }
     setIdToken(response.id_token)
     try {
       if (response.id_token) setIdTokenData(decodeJWT(response.id_token))
