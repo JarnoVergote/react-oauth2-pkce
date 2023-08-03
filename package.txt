@@ -1,0 +1,2 @@
+tsc -p .
+tar -czvf react-oauth2-code-pkce-elindus-vX.X.X.tgz 'directory containing package.json and dist folder'
