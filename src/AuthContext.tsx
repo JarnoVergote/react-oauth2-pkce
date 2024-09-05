@@ -16,10 +16,13 @@ import { FetchError } from './errors'
 
 export const AuthContext = createContext<IAuthContext>({
   token: '',
+  isValidToken: false,
   login: () => null,
   logOut: () => null,
+  refreshAccessToken: () => null,
   error: null,
   loginInProgress: false,
+  refreshInProgress: false,
 })
 
 export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
@@ -36,6 +39,7 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
     config.storage
   )
   const [token, setToken] = useBrowserStorage<string>('ROCP_token', '', config.storage)
+  const [isValidToken, setIsValidToken] = useBrowserStorage<boolean>('ROCP_isValidToken', false, config.storage)
   const [tokenExpire, setTokenExpire] = useBrowserStorage<number>(
     'ROCP_tokenExpire',
     epochAtSecondsFromNow(FALLBACK_EXPIRE_TIME),
@@ -61,6 +65,8 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
   function clearStorage() {
     setRefreshToken(undefined)
     setToken('')
+    setIsValidToken(false)
+    console.log('ClearStorage was called: ' + tokenExpire)
     setTokenExpire(epochAtSecondsFromNow(FALLBACK_EXPIRE_TIME))
     setRefreshTokenExpire(epochAtSecondsFromNow(FALLBACK_EXPIRE_TIME))
     setIdToken(undefined)
@@ -92,9 +98,14 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
   }
 
   function handleTokenResponse(response: TTokenResponse) {
+    const hasTokenChanged = token !== response.access_token
     setToken(response.access_token)
+    setIsValidToken(true)
     const tokenExpiresIn = config.tokenExpiresIn ?? response.expires_in ?? FALLBACK_EXPIRE_TIME
-    setTokenExpire(epochAtSecondsFromNow(tokenExpiresIn))
+    if (hasTokenChanged) {
+      const epochFromNow = epochAtSecondsFromNow(tokenExpiresIn)
+      setTokenExpire(epochFromNow)
+    }
     if (response.refresh_token) {
       setRefreshToken(response.refresh_token)
       const refreshTokenExpiresIn = config.refreshTokenExpiresIn ?? getRefreshExpiresIn(tokenExpiresIn, response)
@@ -119,6 +130,18 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
     // TODO: Breaking change - remove automatic login during ongoing session
     else if (!config.onRefreshTokenExpire) return login()
     else return config.onRefreshTokenExpire({ login } as TRefreshTokenExpiredEvent)
+  }
+
+  function checkAccessTokenExpired(): void {
+    if (!token) return
+    // The token has not expired. Do nothing
+    if (!epochTimeIsPast(tokenExpire)) return
+    // The token has expired. If onAccessTokenExpire is configured we let the user decide when to call refreshAccessToken.
+    // If nothing is configured the regular flow will be followed where the access token gets refreshed.
+    setIsValidToken(false)
+    if (config.autoRefreshToken) {
+      refreshAccessToken()
+    }
   }
 
   function refreshAccessToken(initial = false): void {
@@ -169,7 +192,7 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
 
   // Register the 'check for soon expiring access token' interval (Every 10 seconds)
   useEffect(() => {
-    interval = setInterval(() => refreshAccessToken(), 10000) // eslint-disable-line
+    interval = setInterval(() => checkAccessTokenExpired(), 10000) // eslint-disable-line
     return () => clearInterval(interval)
   }, [token, refreshToken, refreshTokenExpire, tokenExpire]) // Replace the interval with a new when values used inside refreshAccessToken changes
 
@@ -241,7 +264,21 @@ export const AuthProvider = ({ authConfig, children }: IAuthProvider) => {
   }, []) // eslint-disable-line
 
   return (
-    <AuthContext.Provider value={{ token, tokenData, idToken, idTokenData, login, logOut, error, loginInProgress }}>
+    <AuthContext.Provider
+      value={{
+        token,
+        tokenData,
+        idToken,
+        idTokenData,
+        isValidToken,
+        login,
+        logOut,
+        refreshAccessToken,
+        error,
+        loginInProgress,
+        refreshInProgress,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

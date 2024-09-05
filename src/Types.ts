@@ -40,13 +40,16 @@ export interface IAuthProvider {
 
 export interface IAuthContext {
   token: string
+  isValidToken: boolean
   logOut: (state?: string, logoutHint?: string) => void
   login: (state?: string) => void
+  refreshAccessToken: () => void
   error: string | null
   tokenData?: TTokenData
   idToken?: string
   idTokenData?: TTokenData
   loginInProgress: boolean
+  refreshInProgress: boolean
 }
 
 // Input from users of the package, some optional values
@@ -61,6 +64,7 @@ export type TAuthConfig = {
   logoutRedirect?: string
   preLogin?: () => void
   postLogin?: () => void
+  autoRefreshToken?: boolean
   onRefreshTokenExpire?: (event: TRefreshTokenExpiredEvent) => void
   decodeToken?: boolean
   autoLogin?: boolean
@@ -91,6 +95,7 @@ export type TInternalConfig = {
   logoutRedirect?: string
   preLogin?: () => void
   postLogin?: () => void
+  autoRefreshToken?: boolean
   onRefreshTokenExpire?: (event: TRefreshTokenExpiredEvent) => void
   decodeToken: boolean
   autoLogin: boolean
